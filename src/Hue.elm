@@ -1,4 +1,4 @@
-module Hue (BridgeReference, bridgeRef, LightReference, lightRef, listLights, LightDetails, getLightState, LightState, LightEffect(..), Alert(..), updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error) where
+module Hue exposing (BridgeReference, bridgeRef, LightReference, lightRef, listLights, LightDetails, getLightState, LightState, LightEffect(..), Alert(..), updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
 
 {-| Control your Philips Hue devices with Elm!
 
