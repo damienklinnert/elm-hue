@@ -1,4 +1,4 @@
-module Hue exposing (BridgeReference, bridgeRef, LightReference, lightRef, listLights, LightDetails, getLightState, LightState, LightEffect(..), Alert(..), updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
+module Hue exposing (BridgeReference, bridgeRef, LightReference, lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
 
 {-| Control your Philips Hue devices with Elm!
 
@@ -15,10 +15,10 @@ Check the [README for a general introduction into this module](http://package.el
 @docs LightReference, lightRef
 
 ## Querying Light Details
-@docs listLights, LightDetails
+@docs listLights
 
 ## Retrieving Light State
-@docs getLightState, LightState, LightEffect, Alert
+@docs getLightState
 
 ## Updating Light State
 @docs updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition
@@ -28,11 +28,12 @@ Check the [README for a general introduction into this module](http://package.el
 @docs Error
 -}
 
+
 import Task as T
 import Http as H
-import Json.Decode as JD
-import Json.Decode exposing ((:=))
 import Json.Encode as JE
+import Hue.Lights exposing (..)
+import Hue.Lights.Decoders exposing (..)
 
 
 {-| Used to identify and reference a particular bridge.
@@ -101,87 +102,12 @@ listLights (BridgeReference bridge) =
     |> T.mapError (always GenericError)
 
 
-{-| Details about a light like identifier, software version and bulb type.
--}
-type alias LightDetails =
-  { id : String
-  , name : String
-  , uniqueId : String
-  , bulbType : String
-  , modelId : String
-  , manufacturerName : String
-  , softwareVersion : String
-  }
-
-
-detailsDecoder : JD.Decoder LightDetails
-detailsDecoder =
-  JD.object7
-    LightDetails
-    (JD.succeed "")
-    ("name" := JD.string)
-    ("uniqueid" := JD.string)
-    ("type" := JD.string)
-    ("modelid" := JD.string)
-    ("manufacturername" := JD.string)
-    ("swversion" := JD.string)
-
-
-detailsListDecoder : JD.Decoder (List LightDetails)
-detailsListDecoder =
-  JD.keyValuePairs detailsDecoder |> JD.map (List.map (\( id, m ) -> { m | id = id }))
-
-
 {-| Get the state for a given light.
 -}
 getLightState : LightReference -> T.Task Error LightState
 getLightState (LightReference light) =
   H.get stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
     |> T.mapError (always GenericError)
-
-
-{-| Describes the current state of a light.
-
- - `on`: is this light turned on?
- - `brightness`: a range from `1` (minimal brightness) to `254` (maximal brightness)
- - `hue`: a range from `0` to `65535`, with both of them resulting in red, `25500` in green and
-   `46920` in blue
- - `saturation`: range from `0` (white) to `254` (fully colored)
- - `colorTemperature`: The Mired Color temperature
- - `reachable`: is the light reachable?
--}
-type alias LightState =
-  { on : Bool
-  , brightness : Int
-  , hue : Int
-  , saturation : Int
-  , effect : LightEffect
-  , colorTemperature : Int
-  , alert : Alert
-  , reachable : Bool
-  }
-
-
-stateDecoder : JD.Decoder LightState
-stateDecoder =
-  JD.object8
-    LightState
-    (JD.at [ "state", "on" ] JD.bool)
-    (JD.at [ "state", "bri" ] JD.int)
-    (JD.at [ "state", "hue" ] JD.int)
-    (JD.at [ "state", "sat" ] JD.int)
-    (JD.at [ "state", "effect" ] effectDecoder)
-    (JD.at [ "state", "ct" ] JD.int)
-    (JD.at [ "state", "alert" ] alertDecoder)
-    (JD.at [ "state", "reachable" ] JD.bool)
-
-
-{-| A light can have the `ColorLoopEffect` enabled, which means that the light will cycle through
-all hues, while keeping brightness and saturation values.
--}
-type LightEffect
-  = NoLightEffect
-  | ColorLoopEffect
 
 
 encodeEffect : LightEffect -> JE.Value
@@ -193,37 +119,6 @@ encodeEffect effect =
 
         ColorLoopEffect ->
           "colorloop"
-
-
-effectDecoder : JD.Decoder LightEffect
-effectDecoder =
-  JD.map
-    (\x ->
-      case x of
-        "none" ->
-          NoLightEffect
-
-        "colorloop" ->
-          ColorLoopEffect
-
-        _ ->
-          Debug.crash "Received unexpected light effect"
-    )
-    JD.string
-
-
-{-| A temporary change to a light's state.
-
- - `NoAlert`: Disable any existing alerts.
- - `SingleAlert`: The light will perform a single, smooth transition up to a higher brightness and
-   back to the original again.
- - `LoopedAlert`: The light will perform multiple, smooth transitions up to a higher brightness and
-   back to the original again for a period of `15` seconds.
--}
-type Alert
-  = NoAlert
-  | SingleAlert
-  | LoopedAlert
 
 
 encodeAlert : Alert -> JE.Value
@@ -238,26 +133,6 @@ encodeAlert alert =
 
         LoopedAlert ->
           "lselect"
-
-
-alertDecoder : JD.Decoder Alert
-alertDecoder =
-  JD.map
-    (\x ->
-      case x of
-        "none" ->
-          NoAlert
-
-        "select" ->
-          SingleAlert
-
-        "lselect" ->
-          LoopedAlert
-
-        _ ->
-          Debug.crash "Received unknown light alert"
-    )
-    JD.string
 
 
 {-| Apply a list of `LightUpdate`s to a particular light.
