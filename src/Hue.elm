@@ -1,4 +1,4 @@
-module Hue exposing (BridgeReference, bridgeRef, LightReference, lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
+module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
 
 {-| Control your Philips Hue devices with Elm!
 
@@ -15,10 +15,10 @@ Check the [README for a general introduction into this module](http://package.el
 @docs LightReference, lightRef
 
 ## Querying Light Details
-@docs listLights
+@docs listLights, LightDetails
 
 ## Retrieving Light State
-@docs getLightState
+@docs getLightState, LightState, LightEffect, Alert
 
 ## Updating Light State
 @docs updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition
@@ -32,8 +32,7 @@ Check the [README for a general introduction into this module](http://package.el
 import Task as T
 import Http as H
 import Json.Encode as JE
-import Hue.Lights exposing (..)
-import Hue.Lights.Decoders exposing (..)
+import Hue.Lights.Decoders as LD
 
 
 {-| Used to identify and reference a particular bridge.
@@ -81,6 +80,63 @@ type alias LightReferenceData =
   }
 
 
+{-| Details about a light like identifier, software version and bulb type.
+-}
+type alias LightDetails =
+    { id : String
+    , name : String
+    , uniqueId : String
+    , bulbType : String
+    , modelId : String
+    , manufacturerName : String
+    , softwareVersion : String
+    }
+
+
+{-| Describes the current state of a light.
+
+ - `on`: is this light turned on?
+ - `brightness`: a range from `1` (minimal brightness) to `254` (maximal brightness)
+ - `hue`: a range from `0` to `65535`, with both of them resulting in red, `25500` in green and
+   `46920` in blue
+ - `saturation`: range from `0` (white) to `254` (fully colored)
+ - `colorTemperature`: The Mired Color temperature
+ - `reachable`: is the light reachable?
+-}
+type alias LightState =
+    { on : Bool
+    , brightness : Int
+    , hue : Int
+    , saturation : Int
+    , effect : LightEffect
+    , colorTemperature : Int
+    , alert : Alert
+    , reachable : Bool
+    }
+
+
+{-| A light can have the `ColorLoopEffect` enabled, which means that the light will cycle through
+all hues, while keeping brightness and saturation values.
+-}
+type LightEffect
+    = NoLightEffect
+    | ColorLoopEffect
+
+
+{-| A temporary change to a light's state.
+
+ - `NoAlert`: Disable any existing alerts.
+ - `SingleAlert`: The light will perform a single, smooth transition up to a higher brightness and
+   back to the original again.
+ - `LoopedAlert`: The light will perform multiple, smooth transitions up to a higher brightness and
+   back to the original again for a period of `15` seconds.
+-}
+type Alert
+    = NoAlert
+    | SingleAlert
+    | LoopedAlert
+
+
 {-| Create a reference to a light by specifying it's bridge and id.
 
 The id can be obtained by calling `listLights` and looking at the `id` field.
@@ -98,16 +154,18 @@ lightRef (BridgeReference bridge) lightId =
 -}
 listLights : BridgeReference -> T.Task Error (List LightDetails)
 listLights (BridgeReference bridge) =
-  H.get detailsListDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+  H.get LD.detailsListDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
     |> T.mapError (always GenericError)
+    |> T.map (List.map mapLightDetails)
 
 
 {-| Get the state for a given light.
 -}
 getLightState : LightReference -> T.Task Error LightState
 getLightState (LightReference light) =
-  H.get stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
+  H.get LD.stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
     |> T.mapError (always GenericError)
+    |> T.map mapLightState
 
 
 encodeEffect : LightEffect -> JE.Value
@@ -301,6 +359,65 @@ The default is `4` (`400ms`).
 transition : Int -> LightUpdate
 transition t =
   SetTransitionTime t
+
+
+
+-- Light Mappers
+
+
+mapLightDetails : LD.LightDetails -> LightDetails
+mapLightDetails details =
+    LightDetails
+        details.id
+        details.name
+        details.uniqueId
+        details.bulbType
+        details.modelId
+        details.manufacturerName
+        details.softwareVersion
+
+
+mapLightState : LD.LightState -> LightState
+mapLightState state =
+    let
+        newEffect =
+            mapLightEffect state.effect
+
+        newAlert =
+            mapAlert state.alert
+    in
+        LightState
+            state.on
+            state.brightness
+            state.hue
+            state.saturation
+            newEffect
+            state.colorTemperature
+            newAlert
+            state.reachable
+
+
+mapAlert : LD.Alert -> Alert
+mapAlert alert =
+    case alert of
+        LD.NoAlert ->
+            NoAlert
+
+        LD.SingleAlert ->
+            SingleAlert
+
+        LD.LoopedAlert ->
+            LoopedAlert
+
+
+mapLightEffect : LD.LightEffect -> LightEffect
+mapLightEffect effect =
+    case effect of
+        LD.NoLightEffect ->
+            NoLightEffect
+
+        LD.ColorLoopEffect ->
+            ColorLoopEffect
 
 
 

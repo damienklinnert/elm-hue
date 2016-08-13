@@ -1,14 +1,24 @@
 module Hue.Lights.Decoders exposing (..)
 
-import Hue.Lights as Lights
 import Json.Decode as JD
 import Json.Decode exposing ((:=))
 
 
-detailsDecoder : JD.Decoder Lights.LightDetails
+type alias LightDetails =
+    { id : String
+    , name : String
+    , uniqueId : String
+    , bulbType : String
+    , modelId : String
+    , manufacturerName : String
+    , softwareVersion : String
+    }
+
+
+detailsDecoder : JD.Decoder LightDetails
 detailsDecoder =
     JD.object7
-        Lights.LightDetails
+        LightDetails
         (JD.succeed "")
         ("name" := JD.string)
         ("uniqueid" := JD.string)
@@ -18,15 +28,27 @@ detailsDecoder =
         ("swversion" := JD.string)
 
 
-detailsListDecoder : JD.Decoder (List Lights.LightDetails)
+detailsListDecoder : JD.Decoder (List LightDetails)
 detailsListDecoder =
     JD.keyValuePairs detailsDecoder |> JD.map (List.map (\( id, m ) -> { m | id = id }))
 
 
-stateDecoder : JD.Decoder Lights.LightState
+type alias LightState =
+    { on : Bool
+    , brightness : Int
+    , hue : Int
+    , saturation : Int
+    , effect : LightEffect
+    , colorTemperature : Int
+    , alert : Alert
+    , reachable : Bool
+    }
+
+
+stateDecoder : JD.Decoder LightState
 stateDecoder =
     JD.object8
-        Lights.LightState
+        LightState
         (JD.at [ "state", "on" ] JD.bool)
         (JD.at [ "state", "bri" ] JD.int)
         (JD.at [ "state", "hue" ] JD.int)
@@ -37,16 +59,21 @@ stateDecoder =
         (JD.at [ "state", "reachable" ] JD.bool)
 
 
-effectDecoder : JD.Decoder Lights.LightEffect
+type LightEffect
+    = NoLightEffect
+    | ColorLoopEffect
+
+
+effectDecoder : JD.Decoder LightEffect
 effectDecoder =
     JD.map
         (\x ->
             case x of
                 "none" ->
-                    Lights.NoLightEffect
+                    NoLightEffect
 
                 "colorloop" ->
-                    Lights.ColorLoopEffect
+                    ColorLoopEffect
 
                 _ ->
                     Debug.crash "Received unexpected light effect"
@@ -54,19 +81,25 @@ effectDecoder =
         JD.string
 
 
-alertDecoder : JD.Decoder Lights.Alert
+type Alert
+    = NoAlert
+    | SingleAlert
+    | LoopedAlert
+
+
+alertDecoder : JD.Decoder Alert
 alertDecoder =
     JD.map
         (\x ->
             case x of
                 "none" ->
-                    Lights.NoAlert
+                    NoAlert
 
                 "select" ->
-                    Lights.SingleAlert
+                    SingleAlert
 
                 "lselect" ->
-                    Lights.LoopedAlert
+                    LoopedAlert
 
                 _ ->
                     Debug.crash "Received unknown light alert"
