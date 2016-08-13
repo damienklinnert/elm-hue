@@ -9,7 +9,6 @@ import Html.App exposing (program)
 import Task
 import Time
 import Hue
-import Hue.Lights
 
 
 -- IMPORTANT: Configure your bridge and light details here before running this program!
@@ -35,7 +34,7 @@ myLight =
 -- This is how you list all available lights
 
 
-listLightsTask : Task.Task Hue.Error (List Hue.Lights.LightDetails)
+listLightsTask : Task.Task Hue.Error (List Hue.LightDetails)
 listLightsTask =
     Hue.listLights myBridge
         |> Task.map (Debug.log "light details")

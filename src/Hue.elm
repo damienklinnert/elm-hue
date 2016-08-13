@@ -28,6 +28,7 @@ Check the [README for a general introduction into this module](http://package.el
 @docs Error
 -}
 
+
 import Task as T
 import Http as H
 import Json.Encode as JE
@@ -37,13 +38,13 @@ import Hue.Lights.Decoders as LD
 {-| Used to identify and reference a particular bridge.
 -}
 type BridgeReference
-    = BridgeReference BridgeReferenceData
+  = BridgeReference BridgeReferenceData
 
 
 type alias BridgeReferenceData =
-    { baseUrl : String
-    , username : String
-    }
+  { baseUrl : String
+  , username : String
+  }
 
 
 {-| Create a reference to a bridge by providing the bridge base url and your username.
@@ -55,12 +56,12 @@ If you don't yet know the bridge base url or your username,
 -}
 bridgeRef : String -> String -> BridgeReference
 bridgeRef baseUrl username =
-    BridgeReference { baseUrl = baseUrl, username = username }
+  BridgeReference { baseUrl = baseUrl, username = username }
 
 
 bridgeReferenceDataUrl : BridgeReferenceData -> String
 bridgeReferenceDataUrl bridge =
-    bridge.baseUrl ++ "/api/" ++ bridge.username
+  bridge.baseUrl ++ "/api/" ++ bridge.username
 
 
 
@@ -70,13 +71,13 @@ bridgeReferenceDataUrl bridge =
 {-| Used to identify and reference a particular light.
 -}
 type LightReference
-    = LightReference LightReferenceData
+  = LightReference LightReferenceData
 
 
 type alias LightReferenceData =
-    { bridge : BridgeReferenceData
-    , id : String
-    }
+  { bridge : BridgeReferenceData
+  , id : String
+  }
 
 
 {-| Details about a light like identifier, software version and bulb type.
@@ -146,50 +147,50 @@ To create a reference to the light with id `"2"`, you can do:
 -}
 lightRef : BridgeReference -> String -> LightReference
 lightRef (BridgeReference bridge) lightId =
-    LightReference { bridge = bridge, id = lightId }
+  LightReference { bridge = bridge, id = lightId }
 
 
 {-| List details about all lights connected to a particular bridge.
 -}
 listLights : BridgeReference -> T.Task Error (List LightDetails)
 listLights (BridgeReference bridge) =
-    H.get LD.detailsListDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
-        |> T.mapError (always GenericError)
-        |> T.map (List.map mapLightDetails)
+  H.get LD.detailsListDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+    |> T.mapError (always GenericError)
+    |> T.map (List.map mapLightDetails)
 
 
 {-| Get the state for a given light.
 -}
 getLightState : LightReference -> T.Task Error LightState
 getLightState (LightReference light) =
-    H.get LD.stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
-        |> T.mapError (always GenericError)
-        |> T.map mapLightState
+  H.get LD.stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
+    |> T.mapError (always GenericError)
+    |> T.map mapLightState
 
 
 encodeEffect : LightEffect -> JE.Value
 encodeEffect effect =
-    JE.string <|
-        case effect of
-            NoLightEffect ->
-                "none"
+  JE.string
+    <| case effect of
+        NoLightEffect ->
+          "none"
 
-            ColorLoopEffect ->
-                "colorloop"
+        ColorLoopEffect ->
+          "colorloop"
 
 
 encodeAlert : Alert -> JE.Value
 encodeAlert alert =
-    JE.string <|
-        case alert of
-            NoAlert ->
-                "none"
+  JE.string
+    <| case alert of
+        NoAlert ->
+          "none"
 
-            SingleAlert ->
-                "select"
+        SingleAlert ->
+          "select"
 
-            LoopedAlert ->
-                "lselect"
+        LoopedAlert ->
+          "lselect"
 
 
 {-| Apply a list of `LightUpdate`s to a particular light.
@@ -200,15 +201,15 @@ The following command will transition a light to a bright red:
 -}
 updateLight : LightReference -> List LightUpdate -> T.Task Error ()
 updateLight (LightReference light) updates =
-    H.send
-        H.defaultSettings
-        { verb = "PUT"
-        , headers = []
-        , url = (bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id ++ "/state"
-        , body = H.string <| JE.encode 0 <| encodeUpdates updates
-        }
-        |> T.mapError (always GenericError)
-        >> T.map (always ())
+  H.send
+    H.defaultSettings
+    { verb = "PUT"
+    , headers = []
+    , url = (bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id ++ "/state"
+    , body = H.string <| JE.encode 0 <| encodeUpdates updates
+    }
+    |> T.mapError (always GenericError)
+    >> T.map (always ())
 
 
 {-|
@@ -220,61 +221,61 @@ updateLight (LightReference light) updates =
       [ turnOn, transition 10, hue 0, brightness 254 ]
 -}
 type LightUpdate
-    = SetOn Bool
-    | SetBrightness Int
-    | SetHue Int
-    | SetSaturation Int
-    | SetColorTemperature Int
-    | SetAlert Alert
-    | SetEffect LightEffect
-    | SetTransitionTime Int
+  = SetOn Bool
+  | SetBrightness Int
+  | SetHue Int
+  | SetSaturation Int
+  | SetColorTemperature Int
+  | SetAlert Alert
+  | SetEffect LightEffect
+  | SetTransitionTime Int
 
 
 encodeUpdate : LightUpdate -> ( String, JE.Value )
 encodeUpdate update =
-    case update of
-        SetOn b ->
-            ( "on", JE.bool b )
+  case update of
+    SetOn b ->
+      ( "on", JE.bool b )
 
-        SetBrightness i ->
-            ( "bri", JE.int i )
+    SetBrightness i ->
+      ( "bri", JE.int i )
 
-        SetHue i ->
-            ( "hue", JE.int i )
+    SetHue i ->
+      ( "hue", JE.int i )
 
-        SetSaturation i ->
-            ( "sat", JE.int i )
+    SetSaturation i ->
+      ( "sat", JE.int i )
 
-        SetColorTemperature i ->
-            ( "ct", JE.int i )
+    SetColorTemperature i ->
+      ( "ct", JE.int i )
 
-        SetAlert alert ->
-            ( "alert", encodeAlert alert )
+    SetAlert alert ->
+      ( "alert", encodeAlert alert )
 
-        SetEffect effect ->
-            ( "effect", encodeEffect effect )
+    SetEffect effect ->
+      ( "effect", encodeEffect effect )
 
-        SetTransitionTime t ->
-            ( "transitiontime", JE.int t )
+    SetTransitionTime t ->
+      ( "transitiontime", JE.int t )
 
 
 encodeUpdates : List LightUpdate -> JE.Value
 encodeUpdates updates =
-    List.map encodeUpdate updates |> JE.object
+  List.map encodeUpdate updates |> JE.object
 
 
 {-| Turn light on.
 -}
 turnOn : LightUpdate
 turnOn =
-    SetOn True
+  SetOn True
 
 
 {-| Turn light off.
 -}
 turnOff : LightUpdate
 turnOff =
-    SetOn False
+  SetOn False
 
 
 {-| Set light to the given brightness.
@@ -284,7 +285,7 @@ A brightness of `1` doesn't turn the light off. Use `turnOff` instead.
 -}
 brightness : Int -> LightUpdate
 brightness i =
-    SetBrightness i
+  SetBrightness i
 
 
 {-| Set light to the given hue value.
@@ -296,7 +297,7 @@ circle, so you'll get red again.
 -}
 hue : Int -> LightUpdate
 hue i =
-    SetHue i
+  SetHue i
 
 
 {-| Set light to the given saturation.
@@ -305,7 +306,7 @@ The saturation can range from `0` (minimally saturated, white) to `254` (fully c
 -}
 saturation : Int -> LightUpdate
 saturation i =
-    SetSaturation i
+  SetSaturation i
 
 
 {-| Set the Mired Color temperature of the light.
@@ -314,7 +315,7 @@ A light should be capable of a value of `153` (6500K) to `500` (2000K).
 -}
 colorTemperature : Int -> LightUpdate
 colorTemperature i =
-    SetColorTemperature i
+  SetColorTemperature i
 
 
 {-| The light will perform a single, smooth transition up to a higher brightness and back to the
@@ -322,7 +323,7 @@ original again.
 -}
 singleAlert : LightUpdate
 singleAlert =
-    SetAlert SingleAlert
+  SetAlert SingleAlert
 
 
 {-| The light will perform multiple, smooth transitions up to a higher brightness and back to the
@@ -330,14 +331,14 @@ original again for a period of `15` seconds.
 -}
 loopedAlert : LightUpdate
 loopedAlert =
-    SetAlert LoopedAlert
+  SetAlert LoopedAlert
 
 
 {-| Turn off all effects on the light.
 -}
 noEffect : LightUpdate
 noEffect =
-    SetEffect NoLightEffect
+  SetEffect NoLightEffect
 
 
 {-| Sets the colorloop effect on the light.
@@ -346,7 +347,7 @@ The light will cycle through all hues, while keeping brightness and saturation v
 -}
 colorLoopEffect : LightUpdate
 colorLoopEffect =
-    SetEffect ColorLoopEffect
+  SetEffect ColorLoopEffect
 
 
 {-| Specify the duration for the transition between the light's current and updated state.
@@ -357,7 +358,7 @@ The default is `4` (`400ms`).
 -}
 transition : Int -> LightUpdate
 transition t =
-    SetTransitionTime t
+  SetTransitionTime t
 
 
 
@@ -426,4 +427,4 @@ mapLightEffect effect =
 {-| Something went wrong.
 -}
 type Error
-    = GenericError
+  = GenericError
