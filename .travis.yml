@@ -2,7 +2,7 @@ language: node_js
 node_js:
   - "4.4.7"
 before_script:
-  - cd tests
+  - cd test
   - npm install -g elm
   - elm-package install -y
 script: elm make Test.elm --output tests.js && node tests.js
