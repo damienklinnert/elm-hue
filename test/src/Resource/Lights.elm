@@ -1,7 +1,8 @@
-module Res.Lights exposing (..)
+module Resource.Lights exposing (..)
+
 
 getAllLights__1_0 : String
-getAllLights__1_0 = 
+getAllLights__1_0 =
     """
     {
         "1": {
@@ -65,7 +66,7 @@ getAllLights__1_0 =
 
 
 noLights : String
-noLights = 
+noLights =
     """
     {}
     """

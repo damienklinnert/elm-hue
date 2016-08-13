@@ -2,7 +2,7 @@ module Tests.Lights exposing (tests)
 
 import Json.Decode as JD
 import ElmTest exposing (..)
-import Res.Lights exposing (..)
+import Resource.Lights exposing (..)
 import Hue.Lights.Decoders exposing (..)
 
 
@@ -25,8 +25,8 @@ getAllLightsTest =
                     fail e
     in
         suite "Get all lights"
-            [ test "Version 1.0 with multiple lights" <|
-                testDecoder detailsListDecoder getAllLights__1_0
-            , test "No lights available" <|
-                testDecoder detailsListDecoder noLights
+            [ test "Version 1.0 with multiple lights"
+                <| testDecoder detailsListDecoder getAllLights__1_0
+            , test "No lights available"
+                <| testDecoder detailsListDecoder noLights
             ]

@@ -5,9 +5,7 @@
     "license": "MIT",
     "source-directories": [
         "../src",
-        "res",
-        "tests",
-        "."
+        "src"
     ],
     "exposed-modules": [],
     "dependencies": {

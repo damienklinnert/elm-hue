@@ -7,4 +7,4 @@ install:
   - (cd test && elm-package install -y)
 script:
   - (cd example && elm make src/BlinkLight.elm)
-  - (cd test && elm make Test.elm --output tests.js && node tests.js)
+  - (cd test && elm make src/Test.elm --output tests.js && node tests.js)
