@@ -13,4 +13,4 @@ tests =
 
 main : Program Never
 main =
-    runSuiteHtml tests
+    runSuite tests
