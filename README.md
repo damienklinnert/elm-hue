@@ -14,7 +14,10 @@ your Elm application. It empowers you to build a UI for controling your lights i
 ## Quickstart
 
 This section will walk you through your very first steps with the `Hue` module. At the end, you'll
-have a good understanding of this module.
+have a good understanding of how to use this module.
+
+You can find a [complete and working example](https://github.com/damienklinnert/elm-hue/blob/master/src/Hue.elm) in the
+`example` folder.
 
 ### Preparation: Obtaining Base Url and Username
 
@@ -39,44 +42,34 @@ hue | grep IP
 In order to communicate with the bridge, we'll need a reference first:
 
 ```elm
-module Main where
+baseUrl =
+    "http://192.168.1.1"
 
-import Hue
 
--- replace those with your base url and username
-baseUrl = "http://192.168.1.1"
-username = "D4yG2jaaJRlKWriuoeNyD25js8aJ53lslaj73DK7"
+username =
+    "D4yG2jaaJRlKWriuoeNyD25js8aJ53lslaj73DK7"
 
-myBridge : Hue.BridgeReference
-myBridge = Hue.bridgeRef baseUrl username
+
+myBridge =
+    Hue.bridgeRef baseUrl username
 ```
 
 ### Listing Available Lights
 
 We can use the bridge reference to list all available lights by calling `listLights`. Don't forget
-to pass the returned `Task` to a `port`.
+to pass the returned `Cmd` to your `program`.
 
 ```elm
-module Main where
+listLightsTask : Task.Task Hue.Error (List Hue.Lights.LightDetails)
+listLightsTask =
+    Hue.listLights myBridge
+        |> Task.map (Debug.log "light details")
+        >> Task.mapError (Debug.log "an error occured")
 
-import Hue
-import Debug
-import Task
-import Graphics.Element as Element
 
--- replace those with your baseUrl and username
-baseUrl = "http://192.168.1.1"
-username = "D4yG2jaaJRlKWriuoeNyD25js8aJ53lslaj73DK7"
-
-myBridge = Hue.bridgeRef baseUrl username
-
-port runListLights : Task.Task Hue.Error (List Hue.LightDetails)
-port runListLights =
-  Hue.listLights myBridge
-    |> Task.map (\details -> Debug.log "light details" details)
-    >> Task.mapError (\err -> Debug.log "an error occured" err)
-
-main = Element.show "Open your developer tools to see light details"
+listLightsCmd : Cmd Msg
+listLightsCmd =
+    Task.perform (always Noop) (always Noop) listLightsTask
 ```
 
 If everything goes well the output will look similar to this:
@@ -104,61 +97,46 @@ If you see an error, make sure that:
 We can use one of the light ids to create a reference to it like this:
 
 ```elm
-myLight : Hue.LightReference
-myLight = Hue.lightRef myBridge lightIdFromPreviousExample
+myLight =
+    Hue.lightRef myBridge "3"
 ```
 
-This light reference allows us to control the light. Here's an example that toggles the light on/off
-every 4 seconds.
+This light reference allows us to control the light. Here's some example code that can be used to toggle the light on/off
+every 4 seconds. Don't forget to wire it up to your program though.
 
 ```elm
-module Main where
-
-import Hue
-import Debug
-import Task
-import Graphics.Element as Element
-import Time
+turnOnTask =
+    Hue.updateLight myLight [ Hue.turnOn ]
+        |> Task.map (Debug.log "turned light on")
+        >> Task.mapError (Debug.log "an error occured")
 
 
--- replace those with your baseUrl and username
-baseUrl = "http://192.168.1.1"
-username = "D4yG2jaaJRlKWriuoeNyD25js8aJ53lslaj73DK7"
+turnOffTask =
+    Hue.updateLight myLight [ Hue.turnOff ]
+        |> Task.map (Debug.log "turned light off")
+        >> Task.mapError (Debug.log "an error occured")
 
 
-myBridge = Hue.bridgeRef baseUrl username
-myLight = Hue.lightRef myBridge "3"
+turnOnCmd : Cmd Msg
+turnOnCmd =
+    Task.perform (always Noop) (always Noop) turnOnTask
 
 
-turnOn =
-  Hue.updateLight myLight [ Hue.turnOn ]
-    |> Task.map (Debug.log "turned light on")
-    >> Task.mapError (Debug.log "an error occured")
-
-turnOff =
-  Hue.updateLight myLight [ Hue.turnOff ]
-    |> Task.map (Debug.log "turned light off")
-    >> Task.mapError (Debug.log "an error occured")
+turnOffCmd : Cmd Msg
+turnOffCmd =
+    Task.perform (always Noop) (always Noop) turnOffTask
 
 
-every4Seconds = Time.every (4 * Time.second)
-everyOther4Seconds = Time.delay (2 * Time.second) every4Seconds
+toggleEvery4Seconds : Sub Msg
+toggleEvery4Seconds =
+    Time.every (4 * Time.second) (always ToggleCmd)
 
-
-port runTurnOn : Signal.Signal (Task.Task Hue.Error ())
-port runTurnOn = Signal.map (always turnOn) every4Seconds
-
-
-port runTurnOff : Signal.Signal (Task.Task Hue.Error ())
-port runTurnOff = Signal.map (always turnOff) everyOther4Seconds
-
-
-main =
-  Element.show "Open your developer tools to see light details"
 ```
 
 
 ### What's next?
 
-Check out the other functions on the [Hue module](http://package.elm-lang.org/packages/damienklinnert/elm-hue/latest/Hue)
-and build yourself a powerful UI for controling your own lights.
+- You can find a [complete and working example](https://github.com/damienklinnert/elm-hue/blob/master/src/Hue.elm) in the
+`example` folder.
+- Check out the other functions on the [Hue module](http://package.elm-lang.org/packages/damienklinnert/elm-hue/latest/Hue)
+- build yourself a powerful UI for controling your own lights.
