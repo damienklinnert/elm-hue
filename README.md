@@ -1,4 +1,4 @@
-# elm-hue
+# elm-hue [![Build Status](https://travis-ci.org/damienklinnert/elm-hue.svg?branch=master)](https://travis-ci.org/damienklinnert/elm-hue)
 
 Control your Philips Hue devices with Elm!
 
