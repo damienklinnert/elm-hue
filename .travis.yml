@@ -1,8 +1,10 @@
 language: node_js
 node_js:
   - "4.4.7"
-before_script:
-  - cd test
+install:
   - npm install -g elm
-  - elm-package install -y
-script: elm make Test.elm --output tests.js && node tests.js
+  - (cd example && elm-package install -y)
+  - (cd test && elm-package install -y)
+script:
+  - (cd example && elm make src/BlinkLight.elm)
+  - (cd test && elm make Test.elm --output tests.js && node tests.js)
