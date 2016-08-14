@@ -25,8 +25,14 @@ getAllLightsTest =
                     fail e
     in
         suite "Get all lights"
-            [ test "Version 1.0 with multiple lights"
-                <| testDecoder detailsListDecoder getAllLights__1_0
+            [ test "Version 1.4 with multiple lights"
+                <| testDecoder detailsListDecoder getAllLights__1_4
+            , test "Version 1.7 with multiple lights"
+                <| testDecoder detailsListDecoder getAllLights__1_7
+            , test "Version 1.9 with multiple lights"
+                <| testDecoder detailsListDecoder getAllLights__1_9
+            , test "Version 1.11 with multiple lights"
+                <| testDecoder detailsListDecoder getAllLights__1_11
             , test "No lights available"
                 <| testDecoder detailsListDecoder noLights
             ]
