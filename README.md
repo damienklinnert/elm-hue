@@ -140,3 +140,7 @@ toggleEvery4Seconds =
 `example` folder.
 - Check out the other functions on the [Hue module](http://package.elm-lang.org/packages/damienklinnert/elm-hue/latest/Hue)
 - build yourself a powerful UI for controling your own lights.
+
+### Notes
+
+- Minimum Hue Bridge version supported is v1.4
