@@ -86,9 +86,10 @@ type alias LightDetails =
     { id : String
     , name : String
     , uniqueId : String
+    , luminaireUniqueId : Maybe String
     , bulbType : String
     , modelId : String
-    , manufacturerName : String
+    , manufacturerName : Maybe String
     , softwareVersion : String
     }
 
@@ -371,6 +372,7 @@ mapLightDetails details =
         details.id
         details.name
         details.uniqueId
+        details.luminaireUniqueId
         details.bulbType
         details.modelId
         details.manufacturerName

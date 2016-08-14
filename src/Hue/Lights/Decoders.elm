@@ -8,23 +8,25 @@ type alias LightDetails =
     { id : String
     , name : String
     , uniqueId : String
+    , luminaireUniqueId : Maybe String
     , bulbType : String
     , modelId : String
-    , manufacturerName : String
+    , manufacturerName : Maybe String
     , softwareVersion : String
     }
 
 
 detailsDecoder : JD.Decoder LightDetails
 detailsDecoder =
-    JD.object7
+    JD.object8
         LightDetails
         (JD.succeed "")
         ("name" := JD.string)
         ("uniqueid" := JD.string)
+        (JD.maybe ("luminaireuniqueid" := JD.string))
         ("type" := JD.string)
         ("modelid" := JD.string)
-        ("manufacturername" := JD.string)
+        (JD.maybe ("manufacturername" := JD.string))
         ("swversion" := JD.string)
 
 
