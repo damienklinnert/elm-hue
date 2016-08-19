@@ -1,5 +1,5 @@
 {
-    "version": "1.0.1",
+    "version": "2.0.0",
     "summary": "Control your Philips Hue devices with Elm",
     "repository": "https://github.com/damienklinnert/elm-hue.git",
     "license": "MIT",
