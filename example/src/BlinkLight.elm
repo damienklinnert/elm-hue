@@ -34,7 +34,7 @@ myLight =
 -- This is how you list all available lights
 
 
-listLightsTask : Task.Task Hue.Error (List Hue.LightDetails)
+listLightsTask : Task.Task Hue.BridgeReferenceError (Result (List Hue.GenericError) (List Hue.LightDetails))
 listLightsTask =
     Hue.listLights myBridge
         |> Task.map (Debug.log "light details")
@@ -43,7 +43,7 @@ listLightsTask =
 
 listLightsCmd : Cmd Msg
 listLightsCmd =
-    Task.perform (always Noop) (always Noop) listLightsTask
+    Task.perform handleBridgeCommandFailure handleListLightsResponse listLightsTask
 
 
 
@@ -53,28 +53,78 @@ listLightsCmd =
 turnOnTask =
     Hue.updateLight myLight [ Hue.turnOn ]
         |> Task.map (Debug.log "turned light on")
-        >> Task.mapError (Debug.log "an error occured")
 
 
 turnOffTask =
     Hue.updateLight myLight [ Hue.turnOff ]
         |> Task.map (Debug.log "turned light off")
-        >> Task.mapError (Debug.log "an error occured")
 
 
 turnOnCmd : Cmd Msg
 turnOnCmd =
-    Task.perform (always Noop) (always Noop) turnOnTask
+    Task.perform handleBridgeCommandFailure handleUpdateResponse turnOnTask
 
 
 turnOffCmd : Cmd Msg
 turnOffCmd =
-    Task.perform (always Noop) (always Noop) turnOffTask
+    Task.perform handleBridgeCommandFailure handleUpdateResponse turnOffTask
 
 
 toggleEvery4Seconds : Sub Msg
 toggleEvery4Seconds =
     Time.every (4 * Time.second) (always ToggleCmd)
+
+
+
+-- Error handling
+
+
+handleBridgeCommandFailure : Hue.BridgeReferenceError -> Msg
+handleBridgeCommandFailure error =
+    case error of
+        Hue.UnauthorizedUser info ->
+            AuthError
+
+        _ ->
+            Error
+
+
+handleListLightsResponse : Result (List Hue.GenericError) (List Hue.LightDetails) -> Msg
+handleListLightsResponse response =
+    case response of
+        Result.Ok lights ->
+            Noop
+
+        Result.Err errors ->
+            Error
+
+
+handleUpdateResponse : Result (List Hue.UpdateLightError) () -> Msg
+handleUpdateResponse response =
+    case response of
+        Result.Ok _ ->
+            Noop
+
+        Result.Err errors ->
+            let
+            commands =
+                List.map
+                    (\e ->
+                        case e of
+                            Hue.UpdateLightError genericError ->
+                                case genericError of
+                                    _ ->
+                                        Debug.log ("generic error " ++ (toString genericError)) Noop
+
+                            Hue.DeviceTurnedOff lightRef offError ->
+                                Debug.log "Device turned off. Turn on device first" Noop
+                    )
+                    errors
+            in
+                if List.all (\cmd -> cmd == Noop) commands then
+                    Noop
+                else
+                    Error
 
 
 
@@ -89,6 +139,8 @@ type alias Model =
 type Msg
     = Noop
     | ToggleCmd
+    | AuthError
+    | Error
 
 
 update msg model =
@@ -105,6 +157,12 @@ update msg model =
                         turnOffCmd
             in
                 ( { willTurnOn = not model.willTurnOn }, cmd )
+
+        AuthError ->
+            ( { model | willTurnOn = False }, Cmd.none)
+
+        Error ->
+            ( model, Cmd.none)
 
 
 main : Program Never
