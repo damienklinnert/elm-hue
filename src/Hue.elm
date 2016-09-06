@@ -165,7 +165,7 @@ listLights : BridgeReference -> T.Task BridgeReferenceError (Result (List Generi
 listLights (BridgeReference bridge) =
   H.get LD.detailsListResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
     |> T.mapError mapHttpError
-    |> (flip T.andThen) failResponseIfAuthError
+    |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetails))
 
 
@@ -175,7 +175,7 @@ getLightState : LightReference -> T.Task BridgeReferenceError (Result (List Gene
 getLightState (LightReference light) =
   H.get LD.stateResponseDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
     |> T.mapError mapHttpError
-    |> (flip T.andThen) failResponseIfAuthError
+    |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors mapLightState)
 
 
@@ -223,7 +223,7 @@ updateLight (LightReference light) updates =
     }
     |> H.fromJson LD.multiResponse
     |> T.mapError mapHttpError
-    |> (flip T.andThen) failMultiResponseIfAuthError
+    |> checkMultiResponseForAuthError
     |> T.map (mapLightUpdateResponse (LightReference light))
 
 
@@ -436,6 +436,15 @@ filterErrors successOrErrors =
                     Nothing
     in
         List.filterMap isError successOrErrors
+
+checkResponseForAuthError : T.Task BridgeReferenceError (LD.Response a) -> T.Task BridgeReferenceError (LD.Response a)
+checkResponseForAuthError task =
+    task `T.andThen` failResponseIfAuthError
+
+
+checkMultiResponseForAuthError : T.Task BridgeReferenceError (List LD.SuccessOrError) -> T.Task BridgeReferenceError (List LD.SuccessOrError)
+checkMultiResponseForAuthError task =
+    task `T.andThen` failMultiResponseIfAuthError
 
 
 {- If any auth errors are returned from the bridge, fail the task
