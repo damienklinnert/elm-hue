@@ -9,6 +9,7 @@ import Html.App exposing (program)
 import Task
 import Time
 import Hue
+import Hue.Errors as Errors
 
 
 -- IMPORTANT: Configure your bridge and light details here before running this program!
@@ -34,7 +35,7 @@ myLight =
 -- This is how you list all available lights
 
 
-listLightsTask : Task.Task Hue.BridgeReferenceError (Result (List Hue.GenericError) (List Hue.LightDetails))
+listLightsTask : Task.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List Hue.LightDetails))
 listLightsTask =
     Hue.listLights myBridge
         |> Task.map (Debug.log "light details")
@@ -79,17 +80,17 @@ toggleEvery4Seconds =
 -- Error handling
 
 
-handleBridgeCommandFailure : Hue.BridgeReferenceError -> Msg
+handleBridgeCommandFailure : Errors.BridgeReferenceError -> Msg
 handleBridgeCommandFailure error =
     case error of
-        Hue.UnauthorizedUser info ->
+        Errors.UnauthorizedUser info ->
             AuthError
 
         _ ->
             Error
 
 
-handleListLightsResponse : Result (List Hue.GenericError) (List Hue.LightDetails) -> Msg
+handleListLightsResponse : Result (List Errors.GenericError) (List Hue.LightDetails) -> Msg
 handleListLightsResponse response =
     case response of
         Result.Ok lights ->
@@ -99,7 +100,7 @@ handleListLightsResponse response =
             Error
 
 
-handleUpdateResponse : Result (List Hue.UpdateLightError) () -> Msg
+handleUpdateResponse : Result (List Errors.UpdateLightError) () -> Msg
 handleUpdateResponse response =
     case response of
         Result.Ok _ ->
@@ -111,13 +112,16 @@ handleUpdateResponse response =
                 List.map
                     (\e ->
                         case e of
-                            Hue.UpdateLightError genericError ->
+                            Errors.UpdateLightError genericError ->
                                 case genericError of
+                                    Errors.ResourceNotAvailable err ->
+                                        Debug.log ("Resource error " ++ err.address ++ " " ++ err.description) Noop
+
                                     _ ->
                                         Debug.log ("generic error " ++ (toString genericError)) Noop
 
-                            Hue.DeviceTurnedOff lightRef offError ->
-                                Debug.log "Device turned off. Turn on device first" Noop
+                            Errors.DeviceTurnedOff lightId offError ->
+                                Debug.log ("Device " ++ lightId ++ " turned off. Turn on device first") Noop
                     )
                     errors
             in
