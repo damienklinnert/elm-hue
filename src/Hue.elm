@@ -1,4 +1,4 @@
-module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, BridgeReferenceError(..), ErrorDetails, GenericError(..), UpdateLightError(..))
+module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition)
 
 {-| Control your Philips Hue devices with Elm!
 
@@ -22,18 +22,6 @@ Check the [README for a general introduction into this module](http://package.el
 
 ## Updating Light State
 @docs updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition
-
-# Errors
-
-@docs BridgeReferenceError
-
-## Generic Hue API Errors
-
-@docs ErrorDetails, GenericError
-
-## Command Specific Hue API Errors
-
-@docs UpdateLightError
 -}
 
 
@@ -41,6 +29,7 @@ import Task as T
 import Http as H
 import Json.Encode as JE
 import Hue.Lights.Decoders as LD
+import Hue.Errors as Errors
 
 
 {-| Used to identify and reference a particular bridge.
@@ -161,7 +150,7 @@ lightRef (BridgeReference bridge) lightId =
 
 {-| List details about all lights connected to a particular bridge.
 -}
-listLights : BridgeReference -> T.Task BridgeReferenceError (Result (List GenericError) (List LightDetails))
+listLights : BridgeReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List LightDetails))
 listLights (BridgeReference bridge) =
   H.get LD.detailsListResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
     |> T.mapError mapHttpError
@@ -171,7 +160,7 @@ listLights (BridgeReference bridge) =
 
 {-| Get the state for a given light.
 -}
-getLightState : LightReference -> T.Task BridgeReferenceError (Result (List GenericError) LightState)
+getLightState : LightReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) LightState)
 getLightState (LightReference light) =
   H.get LD.stateResponseDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
     |> T.mapError mapHttpError
@@ -212,7 +201,7 @@ The following command will transition a light to a bright red:
 
 If the command is successfully sent to the bridge and there are no bridge errors, then `Result.Ok` is returned.
 -}
-updateLight : LightReference -> List LightUpdate -> T.Task BridgeReferenceError (Result (List UpdateLightError) ())
+updateLight : LightReference -> List LightUpdate -> T.Task Errors.BridgeReferenceError (Result (List Errors.UpdateLightError) ())
 updateLight (LightReference light) updates =
   H.send
     H.defaultSettings
@@ -380,50 +369,6 @@ transition t =
 -- Errors
 
 
-{-| Error that occurs preventing proper communication with the bridge.
--}
-type BridgeReferenceError
-    = Timeout
-    | NetworkError
-    | UnauthorizedUser ErrorDetails
-
-
-{-| Details about a Hue API error
--}
-type alias ErrorDetails =
-    { id : Int
-    , description : String
-    , details : String
-    }
-
-
-{-| General Hue API error that can be returned from the bridge after a command.
--}
-type GenericError
-    = GenericError ErrorDetails
-    | ResourceNotAvailable ErrorDetails
-    | ItemLimit ErrorDetails
-    | PortalRequired ErrorDetails
-    | InternalError ErrorDetails
-
-
-{-| Hue API error that can be returned after a `updateLight` command.
-General `GenericError` errors can be returned, as well as a `DeviceTurnedOff` error if the device updating is off.
-
-    case error of
-        UpdateLightError genericError ->
-            case genericError of
-                _ ->
-                    Debug.log "Generic error occurred. Can handle more specific errors if needed." msg
-
-        DeviceTurnedOff lightRef offError ->
-            Debug.log "Device is turned off." msg
--}
-type UpdateLightError
-    = UpdateLightError GenericError
-    | DeviceTurnedOff LightReference ErrorDetails
-
-
 filterErrors : List LD.SuccessOrError -> List LD.Error
 filterErrors successOrErrors =
     let
@@ -437,19 +382,19 @@ filterErrors successOrErrors =
     in
         List.filterMap isError successOrErrors
 
-checkResponseForAuthError : T.Task BridgeReferenceError (LD.Response a) -> T.Task BridgeReferenceError (LD.Response a)
+checkResponseForAuthError : T.Task Errors.BridgeReferenceError (LD.Response a) -> T.Task Errors.BridgeReferenceError (LD.Response a)
 checkResponseForAuthError task =
     task `T.andThen` failResponseIfAuthError
 
 
-checkMultiResponseForAuthError : T.Task BridgeReferenceError (List LD.SuccessOrError) -> T.Task BridgeReferenceError (List LD.SuccessOrError)
+checkMultiResponseForAuthError : T.Task Errors.BridgeReferenceError (List LD.SuccessOrError) -> T.Task Errors.BridgeReferenceError (List LD.SuccessOrError)
 checkMultiResponseForAuthError task =
     task `T.andThen` failMultiResponseIfAuthError
 
 
 {- If any auth errors are returned from the bridge, fail the task
 -}
-failAuthError : List LD.Error -> a -> T.Task BridgeReferenceError a
+failAuthError : List LD.Error -> a -> T.Task Errors.BridgeReferenceError a
 failAuthError errors success =
     let
         isAuthError e =
@@ -466,7 +411,7 @@ failAuthError errors success =
         case authError of
             Just authErr ->
                 mapErrorDetails authErr
-                    |> UnauthorizedUser
+                    |> Errors.UnauthorizedUser
                     |> T.fail
 
             Nothing ->
@@ -475,14 +420,14 @@ failAuthError errors success =
 
 {- Fail the task if the multi success and errors response contains an AuthError
 -}
-failMultiResponseIfAuthError : List LD.SuccessOrError -> T.Task BridgeReferenceError (List LD.SuccessOrError)
+failMultiResponseIfAuthError : List LD.SuccessOrError -> T.Task Errors.BridgeReferenceError (List LD.SuccessOrError)
 failMultiResponseIfAuthError successOrErrors =
         failAuthError (filterErrors successOrErrors) successOrErrors
 
 
 {- Fail the task if the response contains an AuthError
 -}
-failResponseIfAuthError : LD.Response a -> T.Task BridgeReferenceError (LD.Response a)
+failResponseIfAuthError : LD.Response a -> T.Task Errors.BridgeReferenceError (LD.Response a)
 failResponseIfAuthError response =
     case response of
         LD.ErrorsResponse errors ->
@@ -496,8 +441,8 @@ failResponseIfAuthError response =
 -- Light Responses
 
 
-mapLightUpdateResponse : LightReference -> List LD.SuccessOrError -> Result (List UpdateLightError) ()
-mapLightUpdateResponse lightRef successOrErrors =
+mapLightUpdateResponse : LightReference -> List LD.SuccessOrError -> Result (List Errors.UpdateLightError) ()
+mapLightUpdateResponse (LightReference light) successOrErrors =
     let
         errors =
             filterErrors successOrErrors
@@ -511,12 +456,12 @@ mapLightUpdateResponse lightRef successOrErrors =
                     errorMapper e =
                         case e.type' of
                             201 ->
-                                DeviceTurnedOff lightRef (mapErrorDetails e)
+                                Errors.DeviceTurnedOff light.id (mapErrorDetails e)
 
                             _ ->
                                 mapErrorDetails e
                                     |> mapErrorToGenericError
-                                    |> UpdateLightError
+                                    |> Errors.UpdateLightError
                 in
                     Result.Err (List.map errorMapper errors)
 
@@ -593,43 +538,43 @@ mapLightEffect effect =
             ColorLoopEffect
 
 
-mapErrorDetails : LD.Error -> ErrorDetails
+mapErrorDetails : LD.Error -> Errors.ErrorDetails
 mapErrorDetails error =
-    ErrorDetails
+    Errors.ErrorDetails
         error.type'
         error.address
         error.description
 
 
-mapHttpError : H.Error -> BridgeReferenceError
+mapHttpError : H.Error -> Errors.BridgeReferenceError
 mapHttpError httpError =
     case httpError of
         H.Timeout ->
-            Timeout
+            Errors.Timeout
 
         _ ->
-            NetworkError
+            Errors.NetworkError
 
 
-mapErrorToGenericError : ErrorDetails -> GenericError
+mapErrorToGenericError : Errors.ErrorDetails -> Errors.GenericError
 mapErrorToGenericError errorDetails =
     case errorDetails.id of
         3 ->
-            ResourceNotAvailable errorDetails
+            Errors.ResourceNotAvailable errorDetails
 
         11 ->
-            ItemLimit errorDetails
+            Errors.ItemLimit errorDetails
 
         12 ->
-            PortalRequired errorDetails
+            Errors.PortalRequired errorDetails
 
         901 ->
-            InternalError errorDetails
+            Errors.InternalError errorDetails
 
         _ ->
-            GenericError errorDetails
+            Errors.GenericError errorDetails
 
 
-mapErrorsToGenericErrors : List LD.Error -> List GenericError
+mapErrorsToGenericErrors : List LD.Error -> List Errors.GenericError
 mapErrorsToGenericErrors errors =
     List.map (mapErrorDetails >> mapErrorToGenericError) errors
