@@ -1,4 +1,4 @@
-module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition, Error)
+module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition)
 
 {-| Control your Philips Hue devices with Elm!
 
@@ -22,10 +22,6 @@ Check the [README for a general introduction into this module](http://package.el
 
 ## Updating Light State
 @docs updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition
-
-# Errors
-
-@docs Error
 -}
 
 
@@ -33,6 +29,7 @@ import Task as T
 import Http as H
 import Json.Encode as JE
 import Hue.Lights.Decoders as LD
+import Hue.Errors as Errors
 
 
 {-| Used to identify and reference a particular bridge.
@@ -153,20 +150,22 @@ lightRef (BridgeReference bridge) lightId =
 
 {-| List details about all lights connected to a particular bridge.
 -}
-listLights : BridgeReference -> T.Task Error (List LightDetails)
+listLights : BridgeReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List LightDetails))
 listLights (BridgeReference bridge) =
-  H.get LD.detailsListDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
-    |> T.mapError (always GenericError)
-    |> T.map (List.map mapLightDetails)
+  H.get LD.detailsListResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+    |> T.mapError mapHttpError
+    |> checkResponseForAuthError
+    |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetails))
 
 
 {-| Get the state for a given light.
 -}
-getLightState : LightReference -> T.Task Error LightState
+getLightState : LightReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) LightState)
 getLightState (LightReference light) =
-  H.get LD.stateDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
-    |> T.mapError (always GenericError)
-    |> T.map mapLightState
+  H.get LD.stateResponseDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
+    |> T.mapError mapHttpError
+    |> checkResponseForAuthError
+    |> T.map (mapResponse mapErrorsToGenericErrors mapLightState)
 
 
 encodeEffect : LightEffect -> JE.Value
@@ -199,8 +198,10 @@ encodeAlert alert =
 The following command will transition a light to a bright red:
 
     updateLight lightRef [ turnOn, transition 10, hue 0, brightness 254 ]
+
+If the command is successfully sent to the bridge and there are no bridge errors, then `Result.Ok` is returned.
 -}
-updateLight : LightReference -> List LightUpdate -> T.Task Error ()
+updateLight : LightReference -> List LightUpdate -> T.Task Errors.BridgeReferenceError (Result (List Errors.UpdateLightError) ())
 updateLight (LightReference light) updates =
   H.send
     H.defaultSettings
@@ -209,8 +210,10 @@ updateLight (LightReference light) updates =
     , url = (bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id ++ "/state"
     , body = H.string <| JE.encode 0 <| encodeUpdates updates
     }
-    |> T.mapError (always GenericError)
-    >> T.map (always ())
+    |> H.fromJson LD.multiResponse
+    |> T.mapError mapHttpError
+    |> checkMultiResponseForAuthError
+    |> T.map (mapLightUpdateResponse (LightReference light))
 
 
 {-|
@@ -363,7 +366,120 @@ transition t =
 
 
 
--- Light Mappers
+-- Errors
+
+
+filterErrors : List LD.SuccessOrError -> List LD.Error
+filterErrors successOrErrors =
+    let
+        isError a =
+            case a of
+                LD.ErrorValue e ->
+                    Just e
+
+                _ ->
+                    Nothing
+    in
+        List.filterMap isError successOrErrors
+
+checkResponseForAuthError : T.Task Errors.BridgeReferenceError (LD.Response a) -> T.Task Errors.BridgeReferenceError (LD.Response a)
+checkResponseForAuthError task =
+    task `T.andThen` failResponseIfAuthError
+
+
+checkMultiResponseForAuthError : T.Task Errors.BridgeReferenceError (List LD.SuccessOrError) -> T.Task Errors.BridgeReferenceError (List LD.SuccessOrError)
+checkMultiResponseForAuthError task =
+    task `T.andThen` failMultiResponseIfAuthError
+
+
+{- If any auth errors are returned from the bridge, fail the task
+-}
+failAuthError : List LD.Error -> a -> T.Task Errors.BridgeReferenceError a
+failAuthError errors success =
+    let
+        isAuthError e =
+            if e.type' == 1 then
+                True
+            else
+                False
+
+        authError =
+            List.filter isAuthError errors
+                |> List.head
+
+    in
+        case authError of
+            Just authErr ->
+                mapErrorDetails authErr
+                    |> Errors.UnauthorizedUser
+                    |> T.fail
+
+            Nothing ->
+                T.succeed success
+
+
+{- Fail the task if the multi success and errors response contains an AuthError
+-}
+failMultiResponseIfAuthError : List LD.SuccessOrError -> T.Task Errors.BridgeReferenceError (List LD.SuccessOrError)
+failMultiResponseIfAuthError successOrErrors =
+        failAuthError (filterErrors successOrErrors) successOrErrors
+
+
+{- Fail the task if the response contains an AuthError
+-}
+failResponseIfAuthError : LD.Response a -> T.Task Errors.BridgeReferenceError (LD.Response a)
+failResponseIfAuthError response =
+    case response of
+        LD.ErrorsResponse errors ->
+            failAuthError errors (LD.ErrorsResponse errors)
+
+        LD.ValidResponse result ->
+            T.succeed (LD.ValidResponse result)
+
+
+
+-- Light Responses
+
+
+mapLightUpdateResponse : LightReference -> List LD.SuccessOrError -> Result (List Errors.UpdateLightError) ()
+mapLightUpdateResponse (LightReference light) successOrErrors =
+    let
+        errors =
+            filterErrors successOrErrors
+    in
+        case errors of
+            [] ->
+                Result.Ok ()
+
+            _ ->
+                let
+                    errorMapper e =
+                        case e.type' of
+                            201 ->
+                                Errors.DeviceTurnedOff light.id (mapErrorDetails e)
+
+                            _ ->
+                                mapErrorDetails e
+                                    |> mapErrorToGenericError
+                                    |> Errors.UpdateLightError
+                in
+                    Result.Err (List.map errorMapper errors)
+
+
+{- Maps a response that is either a success or a list of errors
+-}
+mapResponse : (List LD.Error -> b) -> (a -> c) -> LD.Response a -> Result b c
+mapResponse errMapper valueMapper response =
+    case response of
+        LD.ValidResponse data ->
+            Ok (valueMapper data)
+
+        LD.ErrorsResponse errors ->
+            Err (errMapper errors)
+
+
+
+-- Light Type Mappers
 
 
 mapLightDetails : LD.LightDetails -> LightDetails
@@ -422,11 +538,43 @@ mapLightEffect effect =
             ColorLoopEffect
 
 
+mapErrorDetails : LD.Error -> Errors.ErrorDetails
+mapErrorDetails error =
+    Errors.ErrorDetails
+        error.type'
+        error.address
+        error.description
 
--- Errors
+
+mapHttpError : H.Error -> Errors.BridgeReferenceError
+mapHttpError httpError =
+    case httpError of
+        H.Timeout ->
+            Errors.Timeout
+
+        _ ->
+            Errors.NetworkError
 
 
-{-| Something went wrong.
--}
-type Error
-  = GenericError
+mapErrorToGenericError : Errors.ErrorDetails -> Errors.GenericError
+mapErrorToGenericError errorDetails =
+    case errorDetails.id of
+        3 ->
+            Errors.ResourceNotAvailable errorDetails
+
+        11 ->
+            Errors.ItemLimit errorDetails
+
+        12 ->
+            Errors.PortalRequired errorDetails
+
+        901 ->
+            Errors.InternalError errorDetails
+
+        _ ->
+            Errors.GenericError errorDetails
+
+
+mapErrorsToGenericErrors : List LD.Error -> List Errors.GenericError
+mapErrorsToGenericErrors errors =
+    List.map (mapErrorDetails >> mapErrorToGenericError) errors

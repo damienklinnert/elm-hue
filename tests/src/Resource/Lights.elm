@@ -1,6 +1,9 @@
 module Resource.Lights exposing (..)
 
 
+-- Get List of Lights
+
+
 getAllLights__1_4 : String
 getAllLights__1_4 =
     """
@@ -258,4 +261,161 @@ noLights : String
 noLights =
     """
     {}
+    """
+
+
+-- Light details
+
+
+
+lightState__1_4 : String
+lightState__1_4 =
+    """
+    {
+        "state": {
+            "hue": 50000,
+            "on": true,
+            "effect": "none",
+            "alert": "none",
+            "bri": 200,
+            "sat": 200,
+            "ct": 500,
+            "xy": [0.5, 0.5],
+            "reachable": true,
+            "colormode": "hs"
+        },
+        "type": "Living Colors",
+        "name": "LC 1",
+        "modelid": "LC0015",
+        "swversion": "1.0.3",
+        "pointsymbol": {
+            "1": "none",
+            "2": "none",
+            "3": "none",
+            "4": "none",
+            "5": "none",
+            "6": "none",
+            "7": "none",
+            "8": "none"
+        }
+    }
+    """
+
+lightState__1_11 : String
+lightState__1_11 =
+    """
+    {
+        "state": {
+            "hue": 50000,
+            "on": true,
+            "effect": "none",
+            "alert": "none",
+            "bri": 200,
+            "sat": 200,
+            "ct": 500,
+            "xy": [0.5, 0.5],
+            "reachable": true,
+            "colormode": "hs"
+        },
+        "type": "Living Colors",
+        "name": "LC 1",
+        "modelid": "LC0015",
+        "swversion": "1.0.3"
+    }
+    """
+
+
+-- Errors and Successes
+
+
+
+invalidAuthError : String
+invalidAuthError =
+    """
+    [
+        {
+            "error": {
+            "type": 1,
+            "address": "/lights",
+            "description": "unauthorized user"
+            }
+        }
+    ]
+    """
+
+
+multiSuccessAndErrorLightUpdateResponse : String
+multiSuccessAndErrorLightUpdateResponse =
+    """
+    [
+        {
+            "error": {
+                "type": 201,
+                "address": "/lights/1/state/sat",
+                "description": "parameter, sat, is not modifiable. Device is set to off."
+            }
+        },
+        {
+            "error": {
+                "type": 201,
+                "address": "/lights/1/state/bri",
+                "description": "parameter, bri, is not modifiable. Device is set to off."
+            }
+        },
+        {
+            "success": {
+                "/lights/1/state/on": false
+            }
+        }
+    ]
+    """
+
+singleSuccessLightUpdateResponse : String
+singleSuccessLightUpdateResponse =
+    """
+    [
+        {"success":{"/lights/1/state/on":true}}
+    ]
+    """
+
+
+multiSuccessLightUpdateResponse : String
+multiSuccessLightUpdateResponse =
+    """
+    [
+        {"success":{"/lights/1/state/bri":200}},
+        {"success":{"/lights/1/state/on":true}},
+        {"success":{"/lights/1/state/hue":50000}}
+    ]
+    """
+
+
+allSuccessLightUpdateResponseTypes : String
+allSuccessLightUpdateResponseTypes =
+    """
+    [
+        {
+            "success": {
+                "/lights/1/state/on": true
+            }
+        },
+        {
+            "success": {
+                "/lights/1/state/sat": 254
+            }
+        },
+        {
+            "success": {
+                "/lights/1/state/xy": [
+                    0.5,
+                    0.5
+                ]
+            }
+        },
+        {
+            "success": {
+                "/lights/1/state/alert": "none"
+            }
+        }
+    ]
     """

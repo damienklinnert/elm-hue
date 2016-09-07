@@ -60,7 +60,7 @@ We can use the bridge reference to list all available lights by calling `listLig
 to pass the returned `Cmd` to your `program`.
 
 ```elm
-listLightsTask : Task.Task Hue.Error (List Hue.LightDetails)
+listLightsTask : Task.Task Hue.Errors.BridgeReferenceError (List Hue.LightDetails)
 listLightsTask =
     Hue.listLights myBridge
         |> Task.map (Debug.log "light details")
@@ -133,6 +133,52 @@ toggleEvery4Seconds =
 
 ```
 
+
+### Errors
+
+Handling errors with the Hue system is often a challenge.
+
+1. You can have errors sending commands to the bridge from bad network conditions, unplugged bridge, not authorized on bridge, etc.
+
+2. When you do successfully send commands to a bridge, a list of errors can be returned from the bridge. A list of errors can also be returned with a list of successful updates. 
+There are multiple different error types that can come back depending on the command sent and the bridge state. 
+ 
+This library aims to make that process easier by relying on the fantastic type system. First we separate errors into two main categories.
+
+1. Bridge communication failures. Any issues communicating with a bridge will fail the `Task` with a `BridgeReferenceError` type that will contain the case of the failure.
+
+```elm
+case error of
+    UnauthorizedUser info ->
+        -- Not authorized on bridge
+
+    Timeout ->
+        -- Network timed out
+
+    NetworkError ->
+        -- Network error
+```
+
+2. Errors returned from the bridge. When a `Task` successfully communicated with the bridge, a `Result` is returned containing
+a list of bridge errors in the `Err` tag and the successful query data in the `Ok` tag.
+
+```elm
+case response of
+    Result.Ok lights ->
+        -- Successfully got a list of lights as from the bridge
+
+    Result.Err errors ->
+        -- Bridge did not return a list of lights, but a list of errors instead
+```
+
+Things are further separated by the kinds of errors that can be returned. 
+
+1. Generic Errors. Certain error types, such as `InternalError` can be returned from different commands when the
+ bridge has some sort of error. This is classified as a `GenericError` that may come back from any command.
+
+2. Command Specific Errors. Certain error types can only be returned from specific commands. For example, updating a light can not 
+return any error types about groups, but it can return a `DeviceTurnedOff` error type. When updating a light state, only the possible error
+types returned from the bridge are contained in a `UpdateLightError`. That way you only have to think about the possible errors that might come back.
 
 ### What's next?
 
