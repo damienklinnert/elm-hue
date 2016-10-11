@@ -10,6 +10,7 @@ tests : Test
 tests =
     suite "Lights decoding"
         [ getAllLightsTest
+        , getAllLightsWithStateTest
         , getLightStateTest
         , updateLightResponseTest
         ]
@@ -39,6 +40,23 @@ getAllLightsTest =
             <| testDecoder detailsListResponseDecoder noLights
         , test "Authentication error when fetching all lights"
             <| testDecoder detailsListResponseDecoder invalidAuthError
+        ]
+
+getAllLightsWithStateTest : Test
+getAllLightsWithStateTest =
+    suite "Get all lights with state"
+        [ test "Version 1.4 with multiple lights"
+            <| testDecoder detailsAndStatesResponseDecoder getAllLights__1_4
+        , test "Version 1.7 with multiple lights"
+            <| testDecoder detailsAndStatesResponseDecoder getAllLights__1_7
+        , test "Version 1.9 with multiple lights"
+            <| testDecoder detailsAndStatesResponseDecoder getAllLights__1_9
+        , test "Version 1.11 with multiple lights"
+            <| testDecoder detailsAndStatesResponseDecoder getAllLights__1_11
+        , test "No lights available"
+            <| testDecoder detailsAndStatesResponseDecoder noLights
+        , test "Authentication error when fetching all lights"
+            <| testDecoder detailsAndStatesResponseDecoder invalidAuthError
         ]
 
 getLightStateTest : Test
