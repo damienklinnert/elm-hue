@@ -1,4 +1,4 @@
-module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition)
+module Hue exposing (BridgeReference, bridgeRef, LightReference, LightDetails, LightState, LightEffect(..), Alert(..), lightRef, listLights, listLightsWithStates, getLightState, updateLight, LightUpdate, turnOn, turnOff, brightness, hue, saturation, colorTemperature, singleAlert, loopedAlert, noEffect, colorLoopEffect, transition)
 
 {-| Control your Philips Hue devices with Elm!
 
@@ -15,7 +15,7 @@ Check the [README for a general introduction into this module](http://package.el
 @docs LightReference, lightRef
 
 ## Querying Light Details
-@docs listLights, LightDetails
+@docs listLights, listLightsWithStates, LightDetails
 
 ## Retrieving Light State
 @docs getLightState, LightState, LightEffect, Alert
@@ -156,6 +156,16 @@ listLights (BridgeReference bridge) =
     |> T.mapError mapHttpError
     |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetails))
+
+
+{-| List details about all lights connected to a particular bridge. Includes the current state of every light.
+-}
+listLightsWithStates : BridgeReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List ( LightDetails, LightState )))
+listLightsWithStates (BridgeReference bridge) =
+  H.get LD.detailsAndStatesResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+    |> T.mapError mapHttpError
+    |> checkResponseForAuthError
+    |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetailsAndStates))
 
 
 {-| Get the state for a given light.
@@ -513,6 +523,11 @@ mapLightState state =
             state.colorTemperature
             newAlert
             state.reachable
+
+
+mapLightDetailsAndStates : ( LD.LightDetails, LD.LightState ) -> ( LightDetails, LightState )
+mapLightDetailsAndStates ( details, state ) =
+    ( mapLightDetails details, mapLightState state)
 
 
 mapAlert : LD.Alert -> Alert
