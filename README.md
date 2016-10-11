@@ -60,7 +60,7 @@ We can use the bridge reference to list all available lights by calling `listLig
 to pass the returned `Cmd` to your `program`.
 
 ```elm
-listLightsTask : Task.Task Hue.Errors.BridgeReferenceError (List Hue.LightDetails)
+listLightsTask : Task.Task Hue.Errors.BridgeReferenceError (Result (List Hue.Errors.GenericError) (List Hue.LightDetails))
 listLightsTask =
     Hue.listLights myBridge
         |> Task.map (Debug.log "light details")
