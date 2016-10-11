@@ -4,6 +4,7 @@ module Hue.Lights.Decoders
         , LightDetails
         , detailsResponseDecoder
         , detailsListResponseDecoder
+        , detailsAndStatesResponseDecoder
         , LightState
         , stateResponseDecoder
         , LightEffect(..)
@@ -105,6 +106,29 @@ stateDecoder =
 stateResponseDecoder : JD.Decoder (Response LightState)
 stateResponseDecoder =
     responseDecoder stateDecoder
+
+
+detailAndStateDecoder : JD.Decoder ( LightDetails, LightState )
+detailAndStateDecoder =
+    JD.object2
+        (,)
+        detailsDecoder
+        stateDecoder
+
+
+detailsAndStatesDecoder : JD.Decoder (List ( LightDetails, LightState ))
+detailsAndStatesDecoder =
+    let
+        updateId id ( details, state ) =
+            ( { details | id = id }, state )
+    in
+        JD.keyValuePairs detailAndStateDecoder
+            |> JD.map (List.map (\( id, data ) -> updateId id data))
+
+
+detailsAndStatesResponseDecoder : JD.Decoder (Response (List ( LightDetails, LightState )))
+detailsAndStatesResponseDecoder =
+    responseDecoder detailsAndStatesDecoder
 
 
 type LightEffect
@@ -226,7 +250,6 @@ successDecoder =
 type SuccessOrError
     = SuccessValue Success
     | ErrorValue Error
-
 
 
 {- A response of a list that may contain errors and success values
