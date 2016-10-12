@@ -187,11 +187,11 @@ types returned from the bridge are contained in a `UpdateLightError`. That way y
 - Check out the other functions on the [Hue module](http://package.elm-lang.org/packages/damienklinnert/elm-hue/latest/Hue)
 - build yourself a powerful UI for controling your own lights.
 
-### Notes
+## Notes
 
 - Minimum Hue Bridge version supported is v1.4
 
-### Contributors
+## Contributors
 
 Thanks to all contributors:
 
