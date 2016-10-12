@@ -190,3 +190,9 @@ types returned from the bridge are contained in a `UpdateLightError`. That way y
 ### Notes
 
 - Minimum Hue Bridge version supported is v1.4
+
+### Contributors
+
+Thanks to all contributors:
+
+- Michael Torres
