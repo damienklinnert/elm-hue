@@ -69,7 +69,7 @@ listLightsTask =
 
 listLightsCmd : Cmd Msg
 listLightsCmd =
-    Task.perform (always Noop) (always Noop) listLightsTask
+    Task.perform (always Noop) listLightsTask
 ```
 
 If everything goes well the output will look similar to this:
@@ -119,12 +119,12 @@ turnOffTask =
 
 turnOnCmd : Cmd Msg
 turnOnCmd =
-    Task.perform (always Noop) (always Noop) turnOnTask
+    Task.perform (always Noop) turnOnTask
 
 
 turnOffCmd : Cmd Msg
 turnOffCmd =
-    Task.perform (always Noop) (always Noop) turnOffTask
+    Task.perform (always Noop) turnOffTask
 
 
 toggleEvery4Seconds : Sub Msg

@@ -4,8 +4,7 @@
 module Main exposing (..)
 
 import Debug
-import Html exposing (text)
-import Html.App exposing (program)
+import Html exposing (text, program)
 import Task
 import Time
 import Hue
@@ -44,8 +43,15 @@ listLightsTask =
 
 listLightsCmd : Cmd Msg
 listLightsCmd =
-    Task.perform handleBridgeCommandFailure handleListLightsResponse listLightsTask
-
+    let
+        handler res =
+            case res of
+                Ok v ->
+                    handleListLightsResponse v
+                Err e ->
+                    handleBridgeCommandFailure e
+    in
+        Task.attempt handler listLightsTask
 
 
 -- This is how you blink the lights
@@ -63,12 +69,28 @@ turnOffTask =
 
 turnOnCmd : Cmd Msg
 turnOnCmd =
-    Task.perform handleBridgeCommandFailure handleUpdateResponse turnOnTask
+    let
+        handler res =
+            case res of
+                Ok v ->
+                    handleUpdateResponse v
+                Err e ->
+                    handleBridgeCommandFailure e
+    in
+        Task.attempt handler turnOnTask
 
 
 turnOffCmd : Cmd Msg
 turnOffCmd =
-    Task.perform handleBridgeCommandFailure handleUpdateResponse turnOffTask
+    let
+        handler res =
+            case res of
+                Ok v ->
+                    handleUpdateResponse v
+                Err e ->
+                    handleBridgeCommandFailure e
+    in
+        Task.attempt handler turnOffTask
 
 
 toggleEvery4Seconds : Sub Msg
@@ -108,7 +130,7 @@ handleUpdateResponse response =
 
         Result.Err errors ->
             let
-            commands =
+              commands =
                 List.map
                     (\e ->
                         case e of
@@ -169,7 +191,7 @@ update msg model =
             ( model, Cmd.none)
 
 
-main : Program Never
+main : Program Never Model Msg
 main =
     program
         { init = ( { willTurnOn = True }, listLightsCmd )

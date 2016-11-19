@@ -18,7 +18,6 @@ module Hue.Lights.Decoders
         )
 
 import Json.Decode as JD
-import Json.Decode exposing ((:=))
 
 
 type Response a
@@ -50,16 +49,16 @@ type alias LightDetails =
 
 detailsDecoder : JD.Decoder LightDetails
 detailsDecoder =
-    JD.object8
+    JD.map8
         LightDetails
         (JD.succeed "")
-        ("name" := JD.string)
-        ("uniqueid" := JD.string)
-        (JD.maybe ("luminaireuniqueid" := JD.string))
-        ("type" := JD.string)
-        ("modelid" := JD.string)
-        (JD.maybe ("manufacturername" := JD.string))
-        ("swversion" := JD.string)
+        (JD.field "name" JD.string)
+        (JD.field "uniqueid" JD.string)
+        (JD.maybe (JD.field "luminaireuniqueid" JD.string))
+        (JD.field "type" JD.string)
+        (JD.field "modelid" JD.string)
+        (JD.maybe (JD.field "manufacturername" JD.string))
+        (JD.field "swversion" JD.string)
 
 
 detailsResponseDecoder : JD.Decoder (Response LightDetails)
@@ -91,7 +90,7 @@ type alias LightState =
 
 stateDecoder : JD.Decoder LightState
 stateDecoder =
-    JD.object8
+    JD.map8
         LightState
         (JD.at [ "state", "on" ] JD.bool)
         (JD.at [ "state", "bri" ] JD.int)
@@ -110,7 +109,7 @@ stateResponseDecoder =
 
 detailAndStateDecoder : JD.Decoder ( LightDetails, LightState )
 detailAndStateDecoder =
-    JD.object2
+    JD.map2
         (,)
         detailsDecoder
         stateDecoder
@@ -190,7 +189,7 @@ alertResponseDecoder =
 
 
 type alias Error =
-    { type' : Int
+    { type_ : Int
     , address : String
     , description : String
     }
@@ -199,11 +198,11 @@ type alias Error =
 errorDecoder : JD.Decoder Error
 errorDecoder =
     JD.at [ "error" ] <|
-        JD.object3
+        JD.map3
             Error
-            ("type" := JD.int)
-            ("address" := JD.string)
-            ("description" := JD.string)
+            (JD.field "type" JD.int)
+            (JD.field "address" JD.string)
+            (JD.field "description" JD.string)
 
 
 errorsDecoder : JD.Decoder (List Error)
@@ -236,7 +235,7 @@ successDecoder =
         firstValue valuePairs =
             case List.head valuePairs of
                 Just pair ->
-                    fst pair
+                    Tuple.first pair
                         |> Success
                         |> JD.succeed
 
@@ -244,7 +243,7 @@ successDecoder =
                     -- Could not parse value, but it was still a Success response object
                     JD.succeed (Success "unknown")
     in
-        JD.keyValuePairs allTypesDecoder `JD.andThen` firstValue |> JD.at [ "success" ]
+        JD.keyValuePairs allTypesDecoder |> JD.andThen firstValue |> JD.at [ "success" ]
 
 
 type SuccessOrError

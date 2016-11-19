@@ -152,7 +152,8 @@ lightRef (BridgeReference bridge) lightId =
 -}
 listLights : BridgeReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List LightDetails))
 listLights (BridgeReference bridge) =
-  H.get LD.detailsListResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+  H.get ((bridgeReferenceDataUrl bridge) ++ "/lights") LD.detailsListResponseDecoder
+    |> H.toTask
     |> T.mapError mapHttpError
     |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetails))
@@ -162,7 +163,8 @@ listLights (BridgeReference bridge) =
 -}
 listLightsWithStates : BridgeReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) (List ( LightDetails, LightState )))
 listLightsWithStates (BridgeReference bridge) =
-  H.get LD.detailsAndStatesResponseDecoder ((bridgeReferenceDataUrl bridge) ++ "/lights")
+  H.get ((bridgeReferenceDataUrl bridge) ++ "/lights") LD.detailsAndStatesResponseDecoder
+    |> H.toTask
     |> T.mapError mapHttpError
     |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors (List.map mapLightDetailsAndStates))
@@ -172,7 +174,8 @@ listLightsWithStates (BridgeReference bridge) =
 -}
 getLightState : LightReference -> T.Task Errors.BridgeReferenceError (Result (List Errors.GenericError) LightState)
 getLightState (LightReference light) =
-  H.get LD.stateResponseDecoder ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id)
+  H.get ((bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id) LD.stateResponseDecoder
+    |> H.toTask
     |> T.mapError mapHttpError
     |> checkResponseForAuthError
     |> T.map (mapResponse mapErrorsToGenericErrors mapLightState)
@@ -213,14 +216,16 @@ If the command is successfully sent to the bridge and there are no bridge errors
 -}
 updateLight : LightReference -> List LightUpdate -> T.Task Errors.BridgeReferenceError (Result (List Errors.UpdateLightError) ())
 updateLight (LightReference light) updates =
-  H.send
-    H.defaultSettings
-    { verb = "PUT"
+  H.request
+    { method = "PUT"
     , headers = []
     , url = (bridgeReferenceDataUrl light.bridge) ++ "/lights/" ++ light.id ++ "/state"
-    , body = H.string <| JE.encode 0 <| encodeUpdates updates
+    , body = H.stringBody "application/json" <| JE.encode 0 <| encodeUpdates updates
+    , expect = H.expectJson LD.multiResponse
+    , timeout = Nothing
+    , withCredentials = False
     }
-    |> H.fromJson LD.multiResponse
+    |> H.toTask
     |> T.mapError mapHttpError
     |> checkMultiResponseForAuthError
     |> T.map (mapLightUpdateResponse (LightReference light))
@@ -394,12 +399,12 @@ filterErrors successOrErrors =
 
 checkResponseForAuthError : T.Task Errors.BridgeReferenceError (LD.Response a) -> T.Task Errors.BridgeReferenceError (LD.Response a)
 checkResponseForAuthError task =
-    task `T.andThen` failResponseIfAuthError
+    task |> T.andThen failResponseIfAuthError
 
 
 checkMultiResponseForAuthError : T.Task Errors.BridgeReferenceError (List LD.SuccessOrError) -> T.Task Errors.BridgeReferenceError (List LD.SuccessOrError)
 checkMultiResponseForAuthError task =
-    task `T.andThen` failMultiResponseIfAuthError
+    task |> T.andThen failMultiResponseIfAuthError
 
 
 {- If any auth errors are returned from the bridge, fail the task
@@ -408,7 +413,7 @@ failAuthError : List LD.Error -> a -> T.Task Errors.BridgeReferenceError a
 failAuthError errors success =
     let
         isAuthError e =
-            if e.type' == 1 then
+            if e.type_ == 1 then
                 True
             else
                 False
@@ -464,7 +469,7 @@ mapLightUpdateResponse (LightReference light) successOrErrors =
             _ ->
                 let
                     errorMapper e =
-                        case e.type' of
+                        case e.type_ of
                             201 ->
                                 Errors.DeviceTurnedOff light.id (mapErrorDetails e)
 
@@ -556,7 +561,7 @@ mapLightEffect effect =
 mapErrorDetails : LD.Error -> Errors.ErrorDetails
 mapErrorDetails error =
     Errors.ErrorDetails
-        error.type'
+        error.type_
         error.address
         error.description
 
